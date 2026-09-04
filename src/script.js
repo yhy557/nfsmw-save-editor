@@ -338,8 +338,50 @@ function StructuredData(header) {
 }
 
 dmap.md5 = EncodedValue(Uint8Array, makePlatformProperty(dmap.save.size.pc - 16, dmap.save.size.ps2 - 16), 16, false);
-// Read-only; the size can vary because of Extra Options
-dmap.name = EncodedValue(String, makePlatformProperty(0x5A31), 8, false);
+dmap.name = CustomEncodedValue(
+	function () {
+		if (dmap.save.value == null) return null;
+		let slice = dmap.save.value.buffer.slice(this.pos[currentPlatform], this.pos[currentPlatform] + this.length);
+		let str = new TextDecoder().decode(slice);
+		let nullIdx = str.indexOf(NULL);
+		return nullIdx !== -1 ? str.slice(0, nullIdx) : str;
+	},
+
+	function (val) {
+		if (dmap.save.value == null) return;
+		let alias;
+		if (typeof val === "string") {
+			alias = val.trim();
+		} else if (val instanceof ArrayBuffer || ArrayBuffer.isView(val)) {
+			let str = new TextDecoder().decode(val);
+			let nullIdx = str.indexOf(NULL);
+			alias = nullIdx !== -1 ? str.slice(0, nullIdx) : str;
+		} else {
+			alias = String(val);
+		}
+		if (alias.length === 0 || alias.length > 16) return;
+
+		let encoded = new TextEncoder().encode(alias);
+		for (let i = 0; i < this.length; i++) {
+			let b = i < encoded.length ? encoded[i] : 0;
+			SetTypedValue(Uint8Array, this.pos[currentPlatform] + i, b, this.littleEndian);
+		}
+
+		if (playerName) {
+			playerName.innerText = `NAME : ` + alias;
+		}
+
+		updateHash();
+	},
+	String,
+	makePlatformProperty(0x5A31),
+	0x24,
+	true,
+	true,
+	"ALIAS",
+	undefined,
+	"MAX 16 CHARACTERS"
+);
 dmap.money = EncodedValue(Uint32Array, makePlatformProperty(0x4039), undefined, undefined, "MONEY");
 dmap.pursuitBounty = EncodedValue(Uint32Array, makePlatformProperty(0xE865, 0xE8A1), undefined, undefined, "PURSUIT BOUNTY");
 dmap.caseName = CustomEncodedValue(
@@ -1325,11 +1367,6 @@ function fetchRaceTimesData() {
 
 function readSaveFile(event) {
 	dmap.save.value = new DataView(event.target.result, dmap.save.pos, dmap.save.size[currentPlatform]);
-
-	dmap.name.value = dmap.save.value.buffer.slice(
-		dmap.name.pos[currentPlatform],
-		dmap.name.pos[currentPlatform] + dmap.name.length,
-	);
 
 	updateHash();
 
