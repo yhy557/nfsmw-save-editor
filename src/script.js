@@ -1366,7 +1366,25 @@ function fetchRaceTimesData() {
 }
 
 function readSaveFile(event) {
-	dmap.save.value = new DataView(event.target.result, dmap.save.pos, dmap.save.size[currentPlatform]);
+	let actualSize = event.target.result.byteLength;
+
+	if (actualSize === dmap.save.size.pc) {
+		currentPlatform = "pc";
+	} else if (actualSize === dmap.save.size.ps2) {
+		currentPlatform = "ps2";
+	} else if (Math.abs(actualSize - dmap.save.size.pc) <= Math.abs(actualSize - dmap.save.size.ps2)) {
+		currentPlatform = "pc";
+	} else {
+		currentPlatform = "ps2";
+	}
+
+	platformsList.value = currentPlatform;
+
+	dmap.save.size[currentPlatform] = actualSize;
+	dmap.md5.pos[currentPlatform] = actualSize - dmap.md5.length;
+	dmap.content.size[currentPlatform] = actualSize - dmap.content.pos - dmap.md5.length;
+
+	dmap.save.value = new DataView(event.target.result, dmap.save.pos, actualSize);
 
 	updateHash();
 
