@@ -84,6 +84,8 @@ let dmap = {};
 
 let currentPlatform = "pc";
 
+let originalSaveBuffer = null;
+
 function makePlatform(name, id) {
 	return {
 		name: name,
@@ -796,6 +798,7 @@ let fileHash = document.querySelector("#filehash");
 let soundButton = document.querySelector("#soundbutton");
 let musicButton = document.querySelector("#musicbutton");
 let platformsList = document.querySelector("#platformsList");
+let resetButton = document.querySelector("#resetbutton");
 
 for (elem of plaforms) {
 	let option = crel("option", {
@@ -823,6 +826,16 @@ saveButton.addEventListener("click", function (event) {
 
 	// https://github.com/eligrey/FileSaver.js/issues/785
 	globalThis.saveAs(new Blob([dmap.save.value], { type: "application/octet-stream", }), dmap.name.value);
+});
+
+resetButton.addEventListener("click", function (event) {
+	if (playSound) new Audio(CONFIRM_SOUND).play();
+
+	resetButton.blur();
+
+	if (!originalSaveBuffer) return;
+
+	loadSaveBuffer(originalSaveBuffer.slice(0));
 });
 
 openButton.addEventListener("click", function (event) {
@@ -907,6 +920,25 @@ function addEntry(list, data) {
 	crel(list, item);
 }
 
+function addActionButton(container, label, handler) {
+	let button = crel("button", { class: "action-button", type: "button" });
+	button.innerText = label;
+
+	button.addEventListener("mouseenter", function (event) {
+		if (playSound) new Audio(SELECT_SOUND).play();
+	});
+
+	button.addEventListener("click", function (event) {
+		if (playSound) new Audio(CONFIRM_SOUND).play();
+
+		handler();
+
+		syncUI();
+	});
+
+	crel(container, button);
+}
+
 function handleData(list, data) {
 	if (data instanceof EncodedValue) {
 		if (!data.configurable) {
@@ -930,6 +962,20 @@ function handleData(list, data) {
 		crel(list, details);
 
 		crel(list, crel("hr"));
+
+		if (data.header === "CAREER SETTINGS") {
+			addActionButton(details, "COMPLETE 100%", completeCareer);
+			addActionButton(details, "RESET CAREER", resetCareer);
+			addActionButton(details, "FRESH START", freshCareer);
+		}
+
+		if (data.header === "BLACKLIST RIVALS") {
+			addActionButton(details, "DEFEAT ALL", defeatAllRivals);
+		}
+
+		if (data.header === "JUNKMAN & REWARD TOKENS") {
+			addActionButton(details, "COLLECT ALL", collectAllTokens);
+		}
 
 		data.dataValues.forEach(val => {
 			if (!val.configurable) {
@@ -968,15 +1014,54 @@ function showData() {
 }
 
 function fetchCarData(index) {
-	let carsContentView = new DataView(dmap.carsContent.value.buffer);
-
-	if (carsContentView.getUint8(index * CAR_STRUCT_SIZE) == INVALID_ID) {
-		return;
-	}
-
 	let carData = StructuredData(`CAR #${index + 1}`);
 
 	let carBase = dmap.carsContent.pos[currentPlatform] + (index * CAR_STRUCT_SIZE);
+
+	carData.dataValues.push(CustomEncodedValue(
+		function () {
+			if (dmap.save.value == null) return null;
+			let slice = dmap.save.value.buffer.slice(carBase, carBase + CAR_ID_SIZE);
+			let bytes = new Uint8Array(slice);
+			if (bytes[0] === INVALID_ID) return "";
+			let str = new TextDecoder().decode(slice);
+			let nullIdx = str.indexOf(NULL);
+			return nullIdx !== -1 ? str.slice(0, nullIdx) : str;
+		},
+		function (val) {
+			if (dmap.save.value == null) return;
+			let alias = (typeof val === "string") ? val.trim() : String(val);
+
+			if (alias.length === 0) {
+				for (let i = 0; i < CAR_ID_SIZE; i++) {
+					SetTypedValue(Uint8Array, carBase + i, INVALID_ID, true);
+				}
+
+				updateHash();
+
+				return;
+			}
+
+			if (alias.length > CAR_ID_LEN) return;
+
+			let encoded = new TextEncoder().encode(alias);
+			for (let i = 0; i < CAR_ID_SIZE; i++) {
+				let b = i < encoded.length ? encoded[i] : 0;
+				SetTypedValue(Uint8Array, carBase + i, b, true);
+			}
+
+			updateHash();
+		},
+		String,
+		makePlatformProperty(carBase),
+		CAR_ID_SIZE,
+		true,
+		true,
+		`CAR ID`,
+		undefined,
+		`LEAVE BLANK TO LOCK SLOT`
+	));
+
 	let bountyPos = carBase + CAR_ID_SIZE;
 	carData.dataValues.push(EncodedValue(Uint32Array, makePlatformProperty(bountyPos), undefined, undefined, `BOUNTY`));
 
@@ -1017,49 +1102,49 @@ function fetchCarData(index) {
 	let bustedPos = carBase + 0x16;
 	carData.dataValues.push(EncodedValue(Uint16Array, makePlatformProperty(bustedPos), undefined, undefined, `PURSUITS BUSTED`));
 
-	let speedingPos = bountyPos + carData.dataValues[0].type.BYTES_PER_ELEMENT + 0x4;
+	let speedingPos = bountyPos + carData.dataValues[1].type.BYTES_PER_ELEMENT + 0x4;
 	carData.dataValues.push(EncodedValue(Uint16Array, makePlatformProperty(speedingPos), undefined, undefined, `SPEEDING`));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`EXCESSIVE SPEEDING`,
 		undefined,
-		carData.dataValues[1]
+		carData.dataValues[2]
 	));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`RECKLESS DRIVING`,
 		undefined,
-		carData.dataValues[2]
+		carData.dataValues[3]
 	));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`RAMMING A POLICE VEHICLE`,
 		undefined,
-		carData.dataValues[3]
+		carData.dataValues[4]
 	));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`HIT AND RUN`,
 		undefined,
-		carData.dataValues[4]
+		carData.dataValues[5]
 	));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`DAMAGE TO PROPERTY`,
 		undefined,
-		carData.dataValues[5]
+		carData.dataValues[6]
 	));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`RESISTING ARREST`,
 		undefined,
-		carData.dataValues[6]
+		carData.dataValues[7]
 	));
 
 	carData.dataValues.push(EncodedValue(Uint16Array, undefined, undefined, undefined,
 		`DRIVING OFF ROADWAY`,
 		undefined,
-		carData.dataValues[7]
+		carData.dataValues[8]
 	));
 
 	dmap.carsData.push(carData);
@@ -1365,8 +1450,96 @@ function fetchRaceTimesData() {
 	dmap.raceTimesData.push(raceGroup);
 }
 
-function readSaveFile(event) {
-	let actualSize = event.target.result.byteLength;
+function completeCareer() {
+	if (dmap.save.value == null) return;
+
+	dmap.save.value.setUint8(0x4038, 0);
+
+	let flags = dmap.save.value.getUint16(0x4040, true);
+	flags |= 0x1000;
+	flags |= 0x0040;
+	dmap.save.value.setUint16(0x4040, flags, true);
+
+	for (let k = 0; k < 248; k++) {
+		let off = 0x42C1 + k * 16 + 4;
+		let f = dmap.save.value.getUint32(off, true);
+		dmap.save.value.setUint32(off, f | 0x0A, true);
+	}
+
+	updateHash();
+}
+
+function resetCareer() {
+	if (dmap.save.value == null) return;
+
+	dmap.save.value.setUint8(0x4038, 15);
+
+	let flags = dmap.save.value.getUint16(0x4040, true);
+	flags &= ~0x1000;
+	flags &= ~0x0040;
+	dmap.save.value.setUint16(0x4040, flags, true);
+
+	for (let k = 0; k < 248; k++) {
+		let off = 0x42C1 + k * 16 + 4;
+		let f = dmap.save.value.getUint32(off, true);
+		dmap.save.value.setUint32(off, f & ~0x0A, true);
+	}
+
+	updateHash();
+}
+
+function freshCareer() {
+	resetCareer();
+
+	if (dmap.save.value == null) return;
+
+	dmap.money.value = 0;
+	dmap.pursuitBounty.value = 0;
+
+	if (currentPlatform === "pc") {
+		for (let i = 0; i < JUNKMAN_SLOT_COUNT; i++) {
+			let off = JUNKMAN_BASE_PC + i * JUNKMAN_SLOT_SIZE;
+			dmap.save.value.setInt32(off, 0, true);
+			dmap.save.value.setInt32(off + 4, 0, true);
+			dmap.save.value.setInt32(off + 8, 0, true);
+		}
+	}
+
+	updateHash();
+}
+
+function defeatAllRivals() {
+	if (dmap.save.value == null) return;
+
+	dmap.save.value.setUint8(0x4038, 0);
+
+	let flags = dmap.save.value.getUint16(0x4040, true);
+	flags |= 0x1000;
+	dmap.save.value.setUint16(0x4040, flags, true);
+
+	updateHash();
+}
+
+function collectAllTokens() {
+	if (dmap.save.value == null) return;
+
+	let slotIdx = 0;
+	for (let t = 0; t < JUNKMAN_TOKENS.length; t++) {
+		let tid = JUNKMAN_TOKENS[t].id;
+		for (let c = 0; c < 3; c++) {
+			let off = JUNKMAN_BASE_PC + slotIdx * JUNKMAN_SLOT_SIZE;
+			dmap.save.value.setInt32(off, tid, true);
+			dmap.save.value.setInt32(off + 4, 0, true);
+			dmap.save.value.setInt32(off + 8, 1, true);
+			slotIdx++;
+		}
+	}
+
+	updateHash();
+}
+
+function loadSaveBuffer(buffer) {
+	let actualSize = buffer.byteLength;
 
 	if (actualSize === dmap.save.size.pc) {
 		currentPlatform = "pc";
@@ -1384,11 +1557,18 @@ function readSaveFile(event) {
 	dmap.md5.pos[currentPlatform] = actualSize - dmap.md5.length;
 	dmap.content.size[currentPlatform] = actualSize - dmap.content.pos - dmap.md5.length;
 
-	dmap.save.value = new DataView(event.target.result, dmap.save.pos, actualSize);
+	dmap.save.value = new DataView(buffer, dmap.save.pos, actualSize);
 
 	updateHash();
 
 	playerName.innerText = `NAME : ` + dmap.name.value;
+
+	dmap.carsData = [];
+	dmap.pursuitsData = [];
+	dmap.blacklistData = [];
+	dmap.junkmanData = [];
+	dmap.speedListData = [];
+	dmap.raceTimesData = [];
 
 	for (let index = 0; index < MAX_CARS; index++) {
 		fetchCarData(index);
@@ -1404,6 +1584,12 @@ function readSaveFile(event) {
 	fetchRaceTimesData();
 
 	showData();
+}
+
+function readSaveFile(event) {
+	originalSaveBuffer = event.target.result.slice(0);
+
+	loadSaveBuffer(event.target.result);
 
 	event.target.removeEventListener("load", readSaveFile);
 }
@@ -1470,6 +1656,10 @@ openButton.addEventListener("mouseenter", function (event) {
 });
 
 saveButton.addEventListener("mouseenter", function (event) {
+	if (playSound) new Audio(SELECT_SOUND).play();
+});
+
+resetButton.addEventListener("mouseenter", function (event) {
 	if (playSound) new Audio(SELECT_SOUND).play();
 });
 
