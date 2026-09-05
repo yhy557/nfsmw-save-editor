@@ -274,3 +274,21 @@ select.data-input option {
 	width: 64px;
 	height: 64px;
 }
+
+.action-button {
+	background-color: var(--background-green);
+	color: black;
+	border: 0px;
+	border-radius: 0%;
+	box-shadow: none;
+	margin: 0.5rem 1rem;
+	padding: 0.4rem 0.8rem;
+	cursor: pointer;
+}
+
+.action-button:hover,
+.action-button:focus {
+	background-color: white;
+	color: black;
+	outline: none;
+}
