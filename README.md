@@ -127,9 +127,3 @@ In addition to standard pursuit metrics, each vehicle in the user's career garag
 ## Known Issues & Technical Limitations
 
 * **Time Conversion:** Automatic conversion of raw race timestamps to human-readable time format remains under active development.
-
----
-
-## Credits & Attributions
-
-* **Base Save Editor Project:** Derived from [NFSMWSaveE](https://github.com/BilawalAhmed0900/NFSMWSaveE)
