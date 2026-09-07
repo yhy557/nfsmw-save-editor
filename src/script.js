@@ -810,8 +810,18 @@ for (elem of plaforms) {
 	crel(platformsList, option);
 }
 
+let originalFileName = "";
+
 platformsList.addEventListener("change", function (event) {
 	currentPlatform = event.target.value;
+	if (dmap.save.value) {
+		let actualSize = dmap.save.value.buffer.byteLength;
+		dmap.save.size[currentPlatform] = actualSize;
+		dmap.md5.pos[currentPlatform] = actualSize - dmap.md5.length;
+		dmap.content.size[currentPlatform] = actualSize - dmap.content.pos - dmap.md5.length;
+		updateHash();
+		loadSaveBuffer(dmap.save.value.buffer.slice(0));
+	}
 });
 
 soundButton.classList.toggle("disabled-button", !playSound);
@@ -824,8 +834,17 @@ saveButton.addEventListener("click", function (event) {
 
 	if (!dmap.save.value) return;
 
-	// https://github.com/eligrey/FileSaver.js/issues/785
-	globalThis.saveAs(new Blob([dmap.save.value], { type: "application/octet-stream", }), dmap.name.value);
+	let filename = dmap.name.value;
+	if (currentPlatform === "ps2") {
+		if (originalFileName && originalFileName.includes("-")) {
+			let prefix = originalFileName.substring(0, originalFileName.lastIndexOf("-") + 1);
+			filename = prefix + dmap.name.value;
+		} else {
+			filename = "BASLUS-21351-" + dmap.name.value;
+		}
+	}
+
+	globalThis.saveAs(new Blob([dmap.save.value.buffer], { type: "application/octet-stream" }), filename);
 });
 
 resetButton.addEventListener("click", function (event) {
@@ -1220,8 +1239,6 @@ function fetchSinglePursuitData(index) {
 }
 
 function fetchBlacklistData() {
-	if (currentPlatform !== "pc") return;
-
 	let blGroup = StructuredData("BLACKLIST RIVALS");
 
 	for (let i = 0; i < BLACKLIST_RIVALS.length; i++) {
@@ -1292,8 +1309,6 @@ function fetchBlacklistData() {
 }
 
 function fetchJunkmanData() {
-	if (currentPlatform !== "pc") return;
-
 	let junkmanGroup = StructuredData("JUNKMAN & REWARD TOKENS");
 
 	for (let t = 0; t < JUNKMAN_TOKENS.length; t++) {
@@ -1372,8 +1387,6 @@ function fetchJunkmanData() {
 }
 
 function fetchSpeedListData() {
-	if (currentPlatform !== "pc") return;
-
 	let speedListGroup = StructuredData("SPEED LIST EVENTS");
 
 	for (let i = 0; i < MAX_SPEEDLIST_EVENTS; i++) {
@@ -1413,8 +1426,6 @@ function fetchSpeedListData() {
 }
 
 function fetchRaceTimesData() {
-	if (currentPlatform !== "pc") return;
-
 	let raceGroup = StructuredData("RACE BEST TIMES");
 
 	for (let i = 0; i < MAX_RACE_ENTRIES; i++) {
@@ -1594,21 +1605,55 @@ function readSaveFile(event) {
 	event.target.removeEventListener("load", readSaveFile);
 }
 
+const _EA_CRC32_TABLE = (function () {
+	let poly = 0x04C11DB7;
+	let table = new Uint32Array(256);
+	for (let i = 0; i < 256; i++) {
+		let c = (i << 24) >>> 0;
+		for (let j = 0; j < 8; j++) {
+			if (c & 0x80000000) {
+				c = (((c << 1) >>> 0) ^ poly) >>> 0;
+			} else {
+				c = (c << 1) >>> 0;
+			}
+		}
+		table[i] = c >>> 0;
+	}
+	return table;
+})();
+
+function ea_crc32(buffer, start = 0, end = undefined) {
+	let view = new Uint8Array(buffer, start, (end !== undefined ? end : buffer.byteLength) - start);
+	if (view.length < 4) return 0;
+	let b0 = view[0], b1 = view[1], b2 = view[2], b3 = view[3];
+	let crc = (((b0 << 24) | (b1 << 16) | (b2 << 8) | b3) >>> 0);
+	crc = (~crc) >>> 0;
+	for (let i = 4; i < view.length; i++) {
+		let idx = (crc >>> 24) & 0xFF;
+		crc = (((((crc << 8) >>> 0) | view[i]) >>> 0) ^ _EA_CRC32_TABLE[idx]) >>> 0;
+	}
+	return (~crc) >>> 0;
+}
+
 function updateHash() {
+	if (!dmap.save.value) return;
+
 	let tempHash = globalThis.md5.digest(dmap.save.value.buffer.slice(
 		dmap.content.pos,
 		dmap.content.pos + dmap.content.size[currentPlatform],
 	));
 
-	if (arrEql(tempHash, dmap.md5.value)) {
-		fileHash.innerText = `HASH : ` + toHex(tempHash);
-
-		return;
-	}
-
 	dmap.md5.value = tempHash;
 
 	fileHash.innerText = `HASH : ` + toHex(tempHash);
+
+	let saveLen = dmap.save.size[currentPlatform];
+	let c1 = ea_crc32(dmap.save.value.buffer, 0x1C, 0x24);
+	let c_data = ea_crc32(dmap.save.value.buffer, 0x24, saveLen);
+	dmap.save.value.setUint32(0x10, c1, true);
+	dmap.save.value.setUint32(0x14, c_data, true);
+	let c2 = ea_crc32(dmap.save.value.buffer, 0x00, 0x18);
+	dmap.save.value.setUint32(0x18, c2, true);
 }
 
 fileInput.addEventListener("click", function (event) {
@@ -1632,6 +1677,8 @@ fileInput.addEventListener("change", function (event) {
 	if (event.target.files.length == 0) {
 		return;
 	}
+
+	originalFileName = event.target.files[0].name;
 
 	let fileReader = new FileReader();
 
