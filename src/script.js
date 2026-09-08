@@ -773,7 +773,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 ));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
+		if (dmap.save.value == null) return null;
 		let done = 0;
 		for (let k = 0; k < 248; k++) {
 			let f = dmap.save.value.getUint32(0x42C1 + k * 16 + 4, true);
@@ -782,7 +782,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 		return done;
 	},
 	function (val) {
-		if (dmap.save.value == null || !isCareerDataAvailable()) return;
+		if (dmap.save.value == null) return;
 		let target = parseInt(val);
 		if (isNaN(target) || target < 0) return;
 		target = Math.min(248, target);
@@ -810,7 +810,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 ));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
+		if (dmap.save.value == null) return null;
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
 			if (idx === 244) continue;
@@ -820,7 +820,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 		return 1;
 	},
 	function (val) {
-		if (dmap.save.value == null || !isCareerDataAvailable()) return;
+		if (dmap.save.value == null) return;
 		let n = parseInt(val);
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
@@ -1541,14 +1541,16 @@ function fetchRaceTimesData() {
 }
 
 function completeCareer() {
-	if (dmap.save.value == null || !isCareerDataAvailable()) return;
+	if (dmap.save.value == null) return;
 
-	dmap.save.value.setUint8(0x4038, 1);
+	if (currentPlatform === "pc") {
+		dmap.save.value.setUint8(0x4038, 1);
 
-	let flags = dmap.save.value.getUint16(0x4040, true);
-	flags |= 0x1000;
-	flags |= 0x0040;
-	dmap.save.value.setUint16(0x4040, flags, true);
+		let flags = dmap.save.value.getUint16(0x4040, true);
+		flags |= 0x1000;
+		flags |= 0x0040;
+		dmap.save.value.setUint16(0x4040, flags, true);
+	}
 
 	for (let k = 0; k < 248; k++) {
 		let off = 0x42C1 + k * 16 + 4;
