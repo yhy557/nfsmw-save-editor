@@ -1395,7 +1395,7 @@ function fetchJunkmanData() {
 
 		let entry = CustomEncodedValue(
 			function () {
-						if (dmap.save.value == null || currentPlatform !== "pc") return null;
+				if (dmap.save.value == null) return null;
 				let count = 0;
 				for (let i = 0; i < JUNKMAN_SLOT_COUNT; i++) {
 					let off = JUNKMAN_BASE_PC + i * JUNKMAN_SLOT_SIZE;
@@ -1408,7 +1408,7 @@ function fetchJunkmanData() {
 				return count;
 			},
 			function (val) {
-				if (dmap.save.value == null || currentPlatform !== "pc") return;
+				if (dmap.save.value == null) return;
 				let newCount = parseInt(val);
 				if (isNaN(newCount) || newCount < 0) return;
 
@@ -1623,7 +1623,7 @@ function defeatAllRivals() {
 }
 
 function collectAllTokens() {
-	if (dmap.save.value == null || currentPlatform !== "pc") return;
+	if (dmap.save.value == null) return;
 
 	let slotIdx = 0;
 	for (let t = 0; t < JUNKMAN_TOKENS.length; t++) {
