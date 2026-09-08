@@ -84,6 +84,10 @@ let dmap = {};
 
 let currentPlatform = "pc";
 
+function isCareerDataAvailable() {
+	return currentPlatform === "pc";
+}
+
 let originalSaveBuffer = null;
 
 function makePlatform(name, id) {
@@ -364,6 +368,7 @@ dmap.name = CustomEncodedValue(
 		if (alias.length === 0 || alias.length > 16) return;
 
 		let encoded = new TextEncoder().encode(alias);
+		if (encoded.length > this.length) return;
 		for (let i = 0; i < this.length; i++) {
 			let b = i < encoded.length ? encoded[i] : 0;
 			SetTypedValue(Uint8Array, this.pos[currentPlatform] + i, b, this.littleEndian);
@@ -660,17 +665,35 @@ const BLACKLIST_RIVALS = [
 	{ id: 1, name: "RAZOR", car: "BMW M3 GTR" },
 ];
 
+const BLACKLIST_BOSS_RACE_SLOTS = {
+	1: [35, 96, 97, 88, 98],
+	2: [103, 104, 105],
+	3: [116, 20, 117],
+	4: [23, 126, 127],
+	5: [13, 67, 136],
+	6: [5, 24],
+	7: [89, 46],
+	8: [30, 90],
+	9: [94, 32],
+	10: [34, 157],
+	11: [73, 163],
+	12: [33, 54],
+	13: [81, 168],
+	14: [80, 48],
+	15: [14, 10],
+};
+
 const CHALLENGE_SERIES_SLOTS = [29, 45, 83, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 244];
 
 dmap.careerStats = StructuredData("CAREER SETTINGS");
 dmap.careerStats.dataValues.push(EncodedValue(Uint8Array, makePlatformProperty(0x4034), undefined, undefined, `ACTIVE CAR NUMBER`));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null) return null;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
 		return dmap.save.value.getUint8(0x4038);
 	},
 	function (val) {
-		if (dmap.save.value == null) return;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return;
 		let n = parseInt(val);
 		if (isNaN(n) || n < 1 || n > 15) return;
 		dmap.save.value.setUint8(0x4038, n);
@@ -688,12 +711,12 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 ));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null) return null;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
 		let flags = dmap.save.value.getUint16(0x4040, true);
 		return (flags & 0x1000) !== 0 ? 1 : 0;
 	},
 	function (val) {
-		if (dmap.save.value == null) return;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return;
 		let flags = dmap.save.value.getUint16(0x4040, true);
 		let n = parseInt(val);
 		if (n === 1) {
@@ -719,12 +742,12 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 ));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null) return null;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
 		let flags = dmap.save.value.getUint16(0x4040, true);
 		return (flags & 0x0040) !== 0 ? 1 : 0;
 	},
 	function (val) {
-		if (dmap.save.value == null) return;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return;
 		let flags = dmap.save.value.getUint16(0x4040, true);
 		let n = parseInt(val);
 		if (n === 1) {
@@ -750,7 +773,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 ));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null) return null;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
 		let done = 0;
 		for (let k = 0; k < 248; k++) {
 			let f = dmap.save.value.getUint32(0x42C1 + k * 16 + 4, true);
@@ -759,7 +782,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 		return done;
 	},
 	function (val) {
-		if (dmap.save.value == null) return;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return;
 		let target = parseInt(val);
 		if (isNaN(target) || target < 0) return;
 		target = Math.min(248, target);
@@ -787,7 +810,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 ));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
-		if (dmap.save.value == null) return null;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return null;
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
 			if (idx === 244) continue;
@@ -797,7 +820,7 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 		return 1;
 	},
 	function (val) {
-		if (dmap.save.value == null) return;
+		if (dmap.save.value == null || !isCareerDataAvailable()) return;
 		let n = parseInt(val);
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
@@ -1279,6 +1302,20 @@ function fetchSinglePursuitData(index) {
 	dmap.pursuitsData.push(pursuitData);
 }
 
+function completeBlacklistBossRaces(rivalId) {
+	if (dmap.save.value == null || !isCareerDataAvailable()) return;
+
+	let stage = 16 - rivalId;
+	let slots = BLACKLIST_BOSS_RACE_SLOTS[stage];
+	if (slots == null) return;
+
+	for (let i = 0; i < slots.length; i++) {
+		let off = 0x42C1 + slots[i] * 16 + 4;
+		let flags = dmap.save.value.getUint32(off, true);
+		dmap.save.value.setUint32(off, flags | 0x0A, true);
+	}
+}
+
 function fetchBlacklistData() {
 	let blGroup = StructuredData("BLACKLIST RIVALS");
 
@@ -1287,7 +1324,7 @@ function fetchBlacklistData() {
 
 		let entry = CustomEncodedValue(
 			function () {
-				if (dmap.save.value == null) return null;
+				if (dmap.save.value == null || !isCareerDataAvailable()) return null;
 				let currentRival = dmap.save.value.getUint8(0x4038);
 				let flags = dmap.save.value.getUint16(0x4040, true);
 				if (rival.id === 1) {
@@ -1300,7 +1337,7 @@ function fetchBlacklistData() {
 				return "LOCKED";
 			},
 			function (val) {
-				if (dmap.save.value == null) return;
+				if (dmap.save.value == null || !isCareerDataAvailable()) return;
 				let v = (typeof val === "string") ? val.trim().toUpperCase() : "";
 				let currentRival = dmap.save.value.getUint8(0x4038);
 				let flags = dmap.save.value.getUint16(0x4040, true);
@@ -1313,6 +1350,7 @@ function fetchBlacklistData() {
 							dmap.save.value.setUint8(0x4038, rival.id - 1);
 						}
 					}
+					completeBlacklistBossRaces(rival.id);
 				} else if (v === "ACTIVE" || v === "2") {
 					dmap.save.value.setUint8(0x4038, rival.id);
 					if (rival.id === 1) {
@@ -1357,7 +1395,7 @@ function fetchJunkmanData() {
 
 		let entry = CustomEncodedValue(
 			function () {
-				if (dmap.save.value == null) return null;
+						if (dmap.save.value == null || currentPlatform !== "pc") return null;
 				let count = 0;
 				for (let i = 0; i < JUNKMAN_SLOT_COUNT; i++) {
 					let off = JUNKMAN_BASE_PC + i * JUNKMAN_SLOT_SIZE;
@@ -1370,7 +1408,7 @@ function fetchJunkmanData() {
 				return count;
 			},
 			function (val) {
-				if (dmap.save.value == null) return;
+				if (dmap.save.value == null || currentPlatform !== "pc") return;
 				let newCount = parseInt(val);
 				if (isNaN(newCount) || newCount < 0) return;
 
@@ -1503,9 +1541,9 @@ function fetchRaceTimesData() {
 }
 
 function completeCareer() {
-	if (dmap.save.value == null) return;
+	if (dmap.save.value == null || !isCareerDataAvailable()) return;
 
-	dmap.save.value.setUint8(0x4038, 0);
+	dmap.save.value.setUint8(0x4038, 1);
 
 	let flags = dmap.save.value.getUint16(0x4040, true);
 	flags |= 0x1000;
@@ -1515,14 +1553,26 @@ function completeCareer() {
 	for (let k = 0; k < 248; k++) {
 		let off = 0x42C1 + k * 16 + 4;
 		let f = dmap.save.value.getUint32(off, true);
-		dmap.save.value.setUint32(off, f | 0x0A, true);
+		if (CHALLENGE_SERIES_SLOTS.indexOf(k) === -1) {
+			dmap.save.value.setUint32(off, f | 0x0A, true);
+		}
+	}
+
+	for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
+		let off = 0x42C1 + CHALLENGE_SERIES_SLOTS[i] * 16 + 4;
+		let f = dmap.save.value.getUint32(off, true);
+		dmap.save.value.setUint32(off, f | 0x04, true);
+	}
+
+	for (let rivalId = 1; rivalId <= 15; rivalId++) {
+		completeBlacklistBossRaces(rivalId);
 	}
 
 	updateHash();
 }
 
 function resetCareer() {
-	if (dmap.save.value == null) return;
+	if (dmap.save.value == null || !isCareerDataAvailable()) return;
 
 	dmap.save.value.setUint8(0x4038, 15);
 
@@ -1543,7 +1593,7 @@ function resetCareer() {
 function freshCareer() {
 	resetCareer();
 
-	if (dmap.save.value == null) return;
+	if (dmap.save.value == null || currentPlatform !== "pc") return;
 
 	dmap.money.value = 0;
 	dmap.pursuitBounty.value = 0;
@@ -1561,9 +1611,9 @@ function freshCareer() {
 }
 
 function defeatAllRivals() {
-	if (dmap.save.value == null) return;
+	if (dmap.save.value == null || !isCareerDataAvailable()) return;
 
-	dmap.save.value.setUint8(0x4038, 0);
+	dmap.save.value.setUint8(0x4038, 1);
 
 	let flags = dmap.save.value.getUint16(0x4040, true);
 	flags |= 0x1000;
@@ -1573,7 +1623,7 @@ function defeatAllRivals() {
 }
 
 function collectAllTokens() {
-	if (dmap.save.value == null) return;
+	if (dmap.save.value == null || currentPlatform !== "pc") return;
 
 	let slotIdx = 0;
 	for (let t = 0; t < JUNKMAN_TOKENS.length; t++) {
