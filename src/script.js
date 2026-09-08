@@ -660,6 +660,8 @@ const BLACKLIST_RIVALS = [
 	{ id: 1, name: "RAZOR", car: "BMW M3 GTR" },
 ];
 
+const CHALLENGE_SERIES_SLOTS = [29, 45, 83, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 244];
+
 dmap.careerStats = StructuredData("CAREER SETTINGS");
 dmap.careerStats.dataValues.push(EncodedValue(Uint8Array, makePlatformProperty(0x4034), undefined, undefined, `ACTIVE CAR NUMBER`));
 dmap.careerStats.dataValues.push(CustomEncodedValue(
@@ -782,6 +784,45 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 	`CAREER RACES COMPLETED`,
 	undefined,
 	`0 - 248`
+));
+dmap.careerStats.dataValues.push(CustomEncodedValue(
+	function () {
+		if (dmap.save.value == null) return null;
+		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
+			let idx = CHALLENGE_SERIES_SLOTS[i];
+			if (idx === 244) continue;
+			let f = dmap.save.value.getUint32(0x42C1 + idx * 16 + 4, true);
+			if ((f & 0x04) === 0) return 0;
+		}
+		return 1;
+	},
+	function (val) {
+		if (dmap.save.value == null) return;
+		let n = parseInt(val);
+		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
+			let idx = CHALLENGE_SERIES_SLOTS[i];
+			let off = 0x42C1 + idx * 16 + 4;
+			let f = dmap.save.value.getUint32(off, true);
+			if (n === 1) {
+				dmap.save.value.setUint32(off, f | 0x04, true);
+			} else {
+				dmap.save.value.setUint32(off, f & ~0x04, true);
+			}
+		}
+		updateHash();
+	},
+	Uint8Array,
+	makePlatformProperty(0x42C1),
+	1,
+	true,
+	true,
+	`CHALLENGE SERIES UNLOCKED`,
+	undefined,
+	`0=LOCKED  1=UNLOCKED`,
+	[
+		{ value: 0, text: "LOCKED" },
+		{ value: 1, text: "UNLOCKED" },
+	]
 ));
 
 dmap.blacklistData = [];
