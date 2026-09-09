@@ -1556,7 +1556,7 @@ function completeCareer() {
 		let off = 0x42C1 + k * 16 + 4;
 		let f = dmap.save.value.getUint32(off, true);
 		if (CHALLENGE_SERIES_SLOTS.indexOf(k) === -1) {
-			dmap.save.value.setUint32(off, f | 0x0A, true);
+			dmap.save.value.setUint32(off, f | 0x1E, true);
 		}
 	}
 
