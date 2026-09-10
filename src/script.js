@@ -84,6 +84,7 @@ let dmap = {};
 
 let currentPlatform = "pc";
 let originalChallengeFlags = null;
+let challengeSeriesMode = 0;
 
 function isCareerDataAvailable() {
 	return currentPlatform === "pc";
@@ -812,22 +813,13 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
 		if (dmap.save.value == null) return null;
-		if (originalChallengeFlags == null) return 0;
-		let unlocked = true;
-		let matchesDefault = true;
-		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
-			let idx = CHALLENGE_SERIES_SLOTS[i];
-			let f = dmap.save.value.getUint32(0x42C1 + idx * 16 + 4, true);
-			if ((f & 0x04) === 0) unlocked = false;
-			if (f !== originalChallengeFlags[i]) matchesDefault = false;
-		}
-		if (matchesDefault) return 0;
-		if (unlocked) return 1;
-		return 0;
+		return challengeSeriesMode;
 	},
 	function (val) {
 		if (dmap.save.value == null) return;
 		let n = parseInt(val);
+		if (n !== 0 && n !== 1) return;
+		challengeSeriesMode = n;
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
 			let off = 0x42C1 + idx * 16 + 4;
@@ -1571,6 +1563,7 @@ function completeCareer() {
 		let f = dmap.save.value.getUint32(off, true);
 		dmap.save.value.setUint32(off, f | 0x04, true);
 	}
+	challengeSeriesMode = 1;
 
 	for (let rivalId = 1; rivalId <= 15; rivalId++) {
 		completeBlacklistBossRaces(rivalId);
@@ -1667,6 +1660,7 @@ function loadSaveBuffer(buffer) {
 			source.getUint32(0x42C1 + idx * 16 + 4, true)
 		);
 	}
+	challengeSeriesMode = 0;
 
 	platformsList.value = currentPlatform;
 
@@ -1772,6 +1766,7 @@ fileInput.addEventListener("change", function (event) {
 	saveData.innerHTML = `NO DATA`;
 	dmap.save.value = null;
 	originalChallengeFlags = null;
+	challengeSeriesMode = 0;
 	dmap.carsData = [];
 	dmap.pursuitsData = [];
 	dmap.blacklistData = [];
