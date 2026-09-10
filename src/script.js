@@ -83,6 +83,7 @@ function arrEql(a, b) {
 let dmap = {};
 
 let currentPlatform = "pc";
+let originalChallengeFlags = null;
 
 function isCareerDataAvailable() {
 	return currentPlatform === "pc";
@@ -811,13 +812,18 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 dmap.careerStats.dataValues.push(CustomEncodedValue(
 	function () {
 		if (dmap.save.value == null) return null;
+		if (originalChallengeFlags == null) return 0;
+		let unlocked = true;
+		let matchesDefault = true;
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
-			if (idx === 244) continue;
 			let f = dmap.save.value.getUint32(0x42C1 + idx * 16 + 4, true);
-			if ((f & 0x04) === 0) return 0;
+			if ((f & 0x04) === 0) unlocked = false;
+			if (f !== originalChallengeFlags[i]) matchesDefault = false;
 		}
-		return 1;
+		if (matchesDefault) return 0;
+		if (unlocked) return 1;
+		return 0;
 	},
 	function (val) {
 		if (dmap.save.value == null) return;
@@ -825,11 +831,11 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 		for (let i = 0; i < CHALLENGE_SERIES_SLOTS.length; i++) {
 			let idx = CHALLENGE_SERIES_SLOTS[i];
 			let off = 0x42C1 + idx * 16 + 4;
-			let f = dmap.save.value.getUint32(off, true);
-			if (n === 1) {
+			if (n === 0 && originalChallengeFlags != null) {
+				dmap.save.value.setUint32(off, originalChallengeFlags[i], true);
+			} else if (n === 1) {
+				let f = dmap.save.value.getUint32(off, true);
 				dmap.save.value.setUint32(off, f | 0x04, true);
-			} else {
-				dmap.save.value.setUint32(off, f & ~0x04, true);
 			}
 		}
 		updateHash();
@@ -841,10 +847,10 @@ dmap.careerStats.dataValues.push(CustomEncodedValue(
 	true,
 	`CHALLENGE SERIES UNLOCKED`,
 	undefined,
-	`0=LOCKED  1=UNLOCKED`,
+	`0=DEFAULT  1=UNLOCK ALL`,
 	[
-		{ value: 0, text: "LOCKED" },
-		{ value: 1, text: "UNLOCKED" },
+		{ value: 0, text: "DEFAULT" },
+		{ value: 1, text: "UNLOCK ALL" },
 	]
 ));
 
@@ -1655,6 +1661,13 @@ function loadSaveBuffer(buffer) {
 		currentPlatform = "ps2";
 	}
 
+	if (originalChallengeFlags == null) {
+		let source = new DataView(buffer);
+		originalChallengeFlags = CHALLENGE_SERIES_SLOTS.map(idx =>
+			source.getUint32(0x42C1 + idx * 16 + 4, true)
+		);
+	}
+
 	platformsList.value = currentPlatform;
 
 	dmap.save.size[currentPlatform] = actualSize;
@@ -1758,6 +1771,7 @@ fileInput.addEventListener("change", function (event) {
 	fileHash.innerText = `HASH : `;
 	saveData.innerHTML = `NO DATA`;
 	dmap.save.value = null;
+	originalChallengeFlags = null;
 	dmap.carsData = [];
 	dmap.pursuitsData = [];
 	dmap.blacklistData = [];
